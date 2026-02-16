@@ -1,0 +1,25 @@
+{
+  "name": "deployforge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-grade, distributed build and deployment platform.",
+  "main": "index.js",
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:worker": "npm run dev -w apps/worker",
+    "dev:frontend": "npm run dev -w apps/frontend",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm test --workspaces"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
