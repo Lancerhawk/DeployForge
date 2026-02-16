@@ -33,27 +33,43 @@ DeployForge bridges the gap between static code and global availability. It is a
 The following diagram illustrates the distributed flow of a deployment job from the Frontend to S3 Artifact storage.
 
 ```mermaid
-graph TD
-    User([User]) -->|Trigger Deploy| FE[Next.js Dashboard]
-    FE -->|HTTP Request| API[API Control Plane]
-    
-    subgraph "Control Plane"
-        API -->|Create Record| DB[(PostgreSQL / Supabase)]
-        API -->|Push Job| Q{Build Queue}
-    end
+flowchart TB
 
-    subgraph "Execution Engine"
-        Q -->|Poll Job| Worker[Background Worker]
-        Worker -->|Update Status| DB
-        Worker -->|Clone| Git[GitHub Repo]
-        Worker -->|Build| Build[Local Filesystem]
-        Worker -->|Upload| S3[AWS S3 Artifacts]
-    end
+subgraph Frontend
+    FE[Next.js Dashboard]
+end
 
-    style API fill:#f9f,stroke:#333,stroke-width:2px
-    style Worker fill:#bbf,stroke:#333,stroke-width:2px
-    style DB fill:#dfd,stroke:#333,stroke-width:2px
-    style S3 fill:#fdd,stroke:#333,stroke-width:2px
+subgraph API_Layer
+    API[Express API]
+end
+
+subgraph Queue_Layer
+    Q[(Queue)]
+end
+
+subgraph Worker_Layer
+    W[Worker Process]
+end
+
+subgraph Database
+    U[(users)]
+    P[(projects)]
+    D[(deployments)]
+end
+
+subgraph Storage
+    S3[(S3 Bucket)]
+end
+
+FE -->|Create Deployment Request| API
+API -->|Check Active Deployments| D
+API -->|Insert Deployment with status QUEUED| D
+API -->|Push Job| Q
+Q -->|Job Consumed| W
+W -->|Update Deployment Status| D
+W -->|Upload Build Artifact| S3
+FE -->|Fetch Deployment Status| API
+API --> D
 ```
 
 ---
@@ -63,24 +79,84 @@ graph TD
 DeployForge is a **TypeScript Monorepo** using **npm workspaces**.
 
 ```mermaid
-graph LR
-    Root[deployforge/] --> Apps[apps/]
-    Root --> Pkgs[packages/]
-    Root --> Infra[infra/]
+flowchart LR
 
-    subgraph "Applications"
-        Apps --> API[api/]
-        Apps --> Worker[worker/]
-        Apps --> Front[frontend/]
-    end
+Root["deployforge/"]
 
-    subgraph "Shared Packages"
-        Pkgs --> DB[database/]
-        Pkgs --> Queue[queue/]
-        Pkgs --> Store[storage/]
-        Pkgs --> Log[logger/]
-        Pkgs --> Conf[config/]
-    end
+Root --> Apps["apps/"]
+Root --> Packages["packages/"]
+Root --> Infra["infra/"]
+Root --> RootFiles["root files"]
+
+%% =====================
+%% APPS
+%% =====================
+
+Apps --> API["api/"]
+API --> API_SRC["src/"]
+API_SRC --> API_SERVER["server.ts"]
+API --> API_PKG["package.json"]
+API --> API_TSCONFIG["tsconfig.json"]
+
+Apps --> Worker["worker/"]
+Worker --> WORKER_SRC["src/"]
+WORKER_SRC --> WORKER_ENTRY["worker.ts"]
+Worker --> WORKER_PKG["package.json"]
+Worker --> WORKER_TSCONFIG["tsconfig.json"]
+
+Apps --> Frontend["frontend/"]
+Frontend --> FE_APP["app/"]
+Frontend --> FE_COMPONENTS["components/"]
+Frontend --> FE_PKG["package.json"]
+Frontend --> FE_CONFIG["next.config.js"]
+
+%% =====================
+%% PACKAGES
+%% =====================
+
+Packages --> Database["database/"]
+Database --> DB_PRISMA["prisma/"]
+DB_PRISMA --> DB_SCHEMA["schema.prisma"]
+DB_PRISMA --> DB_MIGRATIONS["migrations/"]
+Database --> DB_SRC["src/"]
+DB_SRC --> DB_CLIENT["client.ts"]
+Database --> DB_PKG["package.json"]
+
+Packages --> Queue["queue/"]
+Queue --> Q_SRC["src/"]
+Queue --> Q_PKG["package.json"]
+
+Packages --> Storage["storage/"]
+Storage --> S_SRC["src/"]
+Storage --> S_PKG["package.json"]
+
+Packages --> Config["config/"]
+Config --> C_SRC["src/"]
+Config --> C_PKG["package.json"]
+
+Packages --> Logger["logger/"]
+Logger --> L_SRC["src/"]
+Logger --> L_PKG["package.json"]
+
+%% =====================
+%% INFRA
+%% =====================
+
+Infra --> AWS["aws/"]
+Infra --> Docker["docker/"]
+Infra --> Nginx["nginx/"]
+
+%% =====================
+%% ROOT FILES
+%% =====================
+
+RootFiles --> RootPkg["package.json"]
+RootFiles --> TsBase["tsconfig.base.json"]
+RootFiles --> DockerCompose["docker-compose.yml"]
+RootFiles --> EnvExample[".env.example"]
+RootFiles --> Readme["README.md"]
+RootFiles --> Changelog["CHANGELOG.md"]
+RootFiles --> License["LICENSE"]
 ```
 
 ### 📱 Applications (`/apps`)
@@ -112,7 +188,53 @@ graph LR
 
 ---
 
-## 🔄 Deployment Lifecycle
+## �️ Database Schema
+
+DeployForge uses PostgreSQL (hosted on Supabase) with Prisma ORM. The schema enforces referential integrity and tracks the complete deployment lifecycle.
+
+```mermaid
+erDiagram
+    User ||--o{ Project : owns
+    User ||--o{ Deployment : creates
+    Project ||--o{ Deployment : contains
+
+    User {
+        string id
+        string githubId
+        string username
+        string email
+        datetime createdAt
+    }
+
+    Project {
+        string id
+        string userId
+        string name
+        string repoUrl
+        string branch
+        string buildCommand
+        string outputDir
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Deployment {
+        string id
+        string projectId
+        string userId
+        string status
+        string commitSha
+        string artifactPath
+        string errorMessage
+        datetime createdAt
+        datetime updatedAt
+        datetime completedAt
+    }
+```
+
+---
+
+## �🔄 Deployment Lifecycle
 
 Deployments move through a strict state machine to ensure reliability and user-level concurrency control:
 
