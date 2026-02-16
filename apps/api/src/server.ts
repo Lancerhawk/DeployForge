@@ -1,19 +1,20 @@
 import express from "express";
-import deploymentRoutes from "./routes/deployments";
+import { createDeploymentRouter } from "./routes/deployments";
 import { errorHandler } from "./middleware/errorHandler";
 
-const app = express();
-const PORT = process.env.PORT || 3001; // Using 3001 to avoid conflict with frontend
+import { createInMemoryProducer } from "@deployforge/queue";
 
-// Middleware
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+const queueProducer = createInMemoryProducer();
+
 app.use(express.json());
 
-// Routes
-app.use("/api/deployments", deploymentRoutes);
+app.use("/api/deployments", createDeploymentRouter(queueProducer));
 
-// Error handler (must be last)
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-    console.log(`🚀 API server running on port ${PORT}`);
+    console.log(`API server running on port ${PORT}`);
 });

@@ -1,12 +1,5 @@
 import { PrismaClient } from '@prisma/client';
 
-/**
- * Singleton Prisma Client
- * 
- * Prevents connection exhaustion by ensuring only one PrismaClient instance
- * exists per Node.js process. Critical for worker scaling and dev hot-reload.
- */
-
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
 };

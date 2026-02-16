@@ -4,47 +4,40 @@ import { AppError } from "../utils/AppError";
 import { getTestUserId } from "../utils/getTestUserId";
 import * as deploymentService from "../services/deploymentService";
 
-const router = Router();
+import { DeploymentQueueProducer } from "@deployforge/queue";
 
-/**
- * POST /api/deployments
- * Create a new deployment for a project.
- */
-router.post(
-    "/",
-    asyncHandler(async (req: Request, res: Response) => {
-        const { projectId } = req.body;
+export function createDeploymentRouter(producer: DeploymentQueueProducer) {
+    const router = Router();
 
-        // TODO: Replace with actual auth middleware
-        const userId = await getTestUserId();
+    router.post(
+        "/",
+        asyncHandler(async (req: Request, res: Response) => {
+            const { projectId } = req.body;
 
-        // TODO: Add proper validation (type check, UUID format)
-        if (!projectId) {
-            throw new AppError("projectId is required", 400);
-        }
+            const userId = await getTestUserId();
 
-        const result = await deploymentService.createDeployment(projectId, userId);
+            if (!projectId) {
+                throw new AppError("projectId is required", 400);
+            }
 
-        res.status(201).json(result);
-    })
-);
+            const result = await deploymentService.createDeployment(projectId, userId, producer);
 
-/**
- * GET /api/deployments/:id
- * Get deployment details by ID.
- */
-router.get(
-    "/:id",
-    asyncHandler(async (req: Request, res: Response) => {
-        const { id } = req.params;
+            res.status(201).json(result);
+        })
+    );
 
-        // TODO: Replace with actual auth middleware
-        const userId = await getTestUserId();
+    router.get(
+        "/:id",
+        asyncHandler(async (req: Request, res: Response) => {
+            const { id } = req.params;
 
-        const deployment = await deploymentService.getDeploymentById(id, userId);
+            const userId = await getTestUserId();
 
-        res.json(deployment);
-    })
-);
+            const deployment = await deploymentService.getDeploymentById(id, userId);
 
-export default router;
+            res.json(deployment);
+        })
+    );
+
+    return router;
+}

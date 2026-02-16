@@ -21,9 +21,9 @@ async function seed() {
                 email: "test@example.com",
             },
         });
-        console.log("✅ Created user:", user.id);
+        console.log("Created user:", user.id);
     } else {
-        console.log("✅ User already exists:", user.id);
+        console.log("User already exists:", user.id);
     }
 
     // Create or find test project
@@ -45,15 +45,15 @@ async function seed() {
                 outputDir: "dist",
             },
         });
-        console.log("✅ Created project:", project.id);
+        console.log("Created project:", project.id);
     } else {
-        console.log("✅ Project already exists:", project.id);
+        console.log("Project already exists:", project.id);
     }
 
-    console.log("\n📋 Test Data:");
+    console.log("\nTest Data:");
     console.log(`User ID: ${user.id}`);
     console.log(`Project ID: ${project.id}`);
-    console.log("\n🧪 Test with:");
+    console.log("\nTest with:");
     console.log(`curl -X POST http://localhost:3001/api/deployments \\`);
     console.log(`  -H "Content-Type: application/json" \\`);
     console.log(`  -d '{"projectId": "${project.id}"}'`);

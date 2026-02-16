@@ -1,12 +1,8 @@
 import { prisma } from "@deployforge/database";
 import { DeploymentStatus } from "@prisma/client";
 import { AppError } from "../utils/AppError";
+import type { DeploymentQueueProducer } from "@deployforge/queue";
 
-/**
- * Active deployment statuses that count toward concurrency limit.
- * These represent deployments that are currently consuming resources.
- * Exported for use in worker and other services.
- */
 export const ACTIVE_STATUSES: DeploymentStatus[] = [
     DeploymentStatus.QUEUED,
     DeploymentStatus.CLONING,
@@ -15,21 +11,7 @@ export const ACTIVE_STATUSES: DeploymentStatus[] = [
     DeploymentStatus.UPLOADING,
 ];
 
-/**
- * Allowed status transitions (enforced by Worker, documented here for reference):
- * 
- * QUEUED → CLONING
- * CLONING → INSTALLING
- * INSTALLING → BUILDING
- * BUILDING → UPLOADING
- * UPLOADING → DEPLOYED
- * ANY → FAILED
- * ANY → CANCELLED
- */
 
-/**
- * Check if user has reached the maximum concurrent deployment limit (2).
- */
 export async function checkConcurrencyLimit(userId: string): Promise<void> {
     const activeCount = await prisma.deployment.count({
         where: {
@@ -45,36 +27,8 @@ export async function checkConcurrencyLimit(userId: string): Promise<void> {
     }
 }
 
-/**
- * Create a new deployment record with status QUEUED.
- * 
- * ⚠️ CRITICAL: Race condition risk - This function is NOT atomic.
- * 
- * Current flow:
- * 1. Check concurrency limit (SELECT COUNT)
- * 2. Create deployment (INSERT)
- * 
- * Problem: Under heavy concurrent traffic, two requests could both pass the
- * count check before either inserts, resulting in 3 active deployments.
- * 
- * Example race condition:
- * - Request A: Checks count (2 active) → passes
- * - Request B: Checks count (2 active) → passes
- * - Request A: Creates deployment (now 3 active)
- * - Request B: Creates deployment (now 4 active) ❌
- * 
- * Solution (to be implemented with queue integration):
- * await prisma.$transaction(async (tx) => {
- *   const activeCount = await tx.deployment.count({ ... });
- *   if (activeCount >= 2) throw error;
- *   await tx.deployment.create({ ... });
- * });
- * 
- * For Phase 1: Acceptable risk (low traffic, testing only)
- * For Production: MUST be wrapped in transaction
- */
-export async function createDeployment(projectId: string, userId: string) {
-    // Verify project exists AND belongs to user (single query optimization)
+
+export async function createDeployment(projectId: string, userId: string, producer: DeploymentQueueProducer) {
     const project = await prisma.project.findFirst({
         where: {
             id: projectId,
@@ -86,10 +40,8 @@ export async function createDeployment(projectId: string, userId: string) {
         throw new AppError("Project not found", 404);
     }
 
-    // Check concurrency limit
     await checkConcurrencyLimit(userId);
 
-    // Create deployment
     const deployment = await prisma.deployment.create({
         data: {
             projectId,
@@ -101,15 +53,16 @@ export async function createDeployment(projectId: string, userId: string) {
         },
     });
 
+    await producer.enqueueDeployment(deployment.id);
+
+
     return {
         deploymentId: deployment.id,
         status: deployment.status,
     };
 }
 
-/**
- * Get deployment by ID with ownership validation (single query optimization).
- */
+
 export async function getDeploymentById(id: string, userId: string) {
     const deployment = await prisma.deployment.findFirst({
         where: {
