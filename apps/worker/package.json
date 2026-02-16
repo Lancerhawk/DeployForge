@@ -1,0 +1,18 @@
+{
+    "name": "worker",
+    "version": "1.0.0",
+    "scripts": {
+        "dev": "tsx watch src/worker.ts",
+        "build": "tsc"
+    },
+    "dependencies": {
+        "@deployforge/database": "*",
+        "@deployforge/queue": "*",
+        "@prisma/client": "^6.1.0",
+        "dotenv": "^16.0.0"
+    },
+    "devDependencies": {
+        "tsx": "^4.0.0",
+        "typescript": "^5.0.0"
+    }
+}

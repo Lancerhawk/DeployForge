@@ -1,2 +1,3 @@
 export type { DeploymentQueueProducer } from "./interfaces/DeploymentQueueProducer";
-export { createInMemoryProducer } from "./inMemoryQueue";
+export type { DeploymentQueueConsumer } from "./interfaces/DeploymentQueueConsumer";
+export { createInMemoryProducer, createInMemoryConsumer } from "./inMemoryQueue";
