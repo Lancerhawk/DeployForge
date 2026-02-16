@@ -1,15 +1,19 @@
-import { prisma } from "@deployforge/database";
+import express from "express";
+import deploymentRoutes from "./routes/deployments";
+import { errorHandler } from "./middleware/errorHandler";
 
-async function testDB() {
-    try {
-        console.log("🔍 Testing database connection...");
-        const result = await prisma.user.findMany();
-        console.log("DB OK:", result);
-        console.log("Database is accessible and working!");
-    } catch (error) {
-        console.error("Database connection failed:", error);
-        process.exit(1);
-    }
-}
+const app = express();
+const PORT = process.env.PORT || 3001; // Using 3001 to avoid conflict with frontend
 
-testDB();
+// Middleware
+app.use(express.json());
+
+// Routes
+app.use("/api/deployments", deploymentRoutes);
+
+// Error handler (must be last)
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+    console.log(`🚀 API server running on port ${PORT}`);
+});
