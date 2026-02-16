@@ -10,7 +10,11 @@
     "dev:frontend": "npm run dev -w apps/frontend",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
-    "test": "npm test --workspaces"
+    "test": "npm test --workspaces",
+    "db:generate": "prisma generate --schema=packages/database/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=packages/database/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema=packages/database/prisma/schema.prisma",
+    "db:push": "prisma db push --schema=packages/database/prisma/schema.prisma"
   },
   "workspaces": [
     "apps/*",

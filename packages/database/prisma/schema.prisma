@@ -1,0 +1,81 @@
+// Prisma Schema for DeployForge
+// Database: PostgreSQL (Supabase)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Deployment lifecycle states
+enum DeploymentStatus {
+  QUEUED
+  CLONING
+  INSTALLING
+  BUILDING
+  UPLOADING
+  DEPLOYED
+  FAILED
+  CANCELLED
+}
+
+// User model - GitHub OAuth authenticated users
+model User {
+  id          String   @id @default(uuid())
+  githubId    String   @unique
+  username    String
+  email       String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  projects    Project[]
+  deployments Deployment[]
+
+  @@map("users")
+}
+
+// Project model - Represents a GitHub repository configuration
+model Project {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  repoUrl      String
+  branch       String   @default("main")
+  buildCommand String
+  outputDir    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deployments  Deployment[]
+
+  @@unique([userId, name])
+  @@map("projects")
+}
+
+// Deployment model - Tracks individual deployment jobs
+model Deployment {
+  id           String           @id @default(uuid())
+  projectId    String
+  userId       String
+  status       DeploymentStatus @default(QUEUED)
+  commitSha    String?
+  artifactPath String?
+  errorMessage String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  completedAt  DateTime?
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("deployments")
+  @@index([userId, status])
+  @@index([projectId])
+}
